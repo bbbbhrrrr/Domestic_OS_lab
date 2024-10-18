@@ -78,8 +78,6 @@ size_t nr_free_pages(void) {
 /* page_init - initialize the physical memory management */
 static void page_init(void) {
 
-	//lab2: page_init
-	cprintf("Start lab2:\n");
     va_pa_offset = PHYSICAL_MEMORY_OFFSET;
     uint64_t mem_begin = KERNEL_BEGIN_PADDR;
     uint64_t mem_size = PHYSICAL_MEMORY_END - KERNEL_BEGIN_PADDR;
@@ -94,33 +92,23 @@ static void page_init(void) {
         maxpa = KERNTOP;
     }
 
-
     extern char end[];
-    uintptr_t freemem = ROUNDUP((uintptr_t)end, PGSIZE);
-    pages = (struct Page *)freemem;
+
     npage = maxpa / PGSIZE;
 
+    pages = (struct Page *)ROUNDUP((void *)end, PGSIZE);
+	pages = KADDR(PADDR(pages));
     for (size_t i = 0; i < npage; i++) {
         SetPageReserved(pages + i);
     }
 
-    size_t reserved_pages = PADDR(freemem + sizeof(struct Page) * npage) / PGSIZE;
-    for (size_t i = 0; i < reserved_pages; i++) {
-        SetPageReserved(pages + i);
+    uintptr_t freemem = PADDR((uintptr_t)pages + sizeof(struct Page) * npage);
+    mem_begin = ROUNDUP(freemem, PGSIZE);
+    mem_end = ROUNDDOWN(mem_end-1, PGSIZE);
+    if (freemem < mem_end) {
+        init_memmap(pa2page(mem_begin), (mem_end - mem_begin) / PGSIZE);
     }
-
-    freemem = ROUNDUP(freemem + sizeof(struct Page) * npage, PGSIZE);
-    size_t free_pages = (maxpa - PADDR(freemem)) / PGSIZE;
-    init_memmap(pa2page(PADDR(freemem)), free_pages);
-
-
-
-
-    assert(nr_free_pages() > 0);
-	cprintf("lab2 ok\n");
-	while(1);
 }
-
 
 static void enable_paging(void) {
 	lcr3(boot_cr3);	
@@ -180,7 +168,10 @@ void pmm_init(void) {
 
     // use pmm->check to verify the correctness of the alloc/free function in a
     // pmm
+	cprintf("Start lab3:\n");
     check_alloc_page();
+	cprintf("lab3 ok\n");
+	while(1);
     // create boot_pgdir, an initial page directory(Page Directory Table, PDT)
     extern char boot_page_table[];
     boot_pgdir = (pte_t*)boot_page_table;
@@ -203,7 +194,7 @@ void pmm_init(void) {
 //  create: a logical value to decide if alloc a page for PT
 // return vaule: the kernel virtual address of this pte
 pte_t *get_pte(pde_t *pgdir, uintptr_t la, bool create) {
-	return NULL;
+    return NULL; 
 }
 
 // get_page - get related Page struct for linear address la using PDT pgdir
