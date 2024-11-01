@@ -65,50 +65,167 @@ default_init(void) {
 
 static void
 default_init_memmap(struct Page *base, size_t n) {
-    assert(n > 0);
+    assert(n > 0); // 确保 n 大于 0
+
     struct Page *p = base;
-    for (; p != base + n; p ++) {
-        assert(PageReserved(p));
-        p->flags = p->property = 0;
-        set_page_ref(p, 0);
+    for (; p != base + n; p++) {
+        assert(PageReserved(p)); // 确保页被保留
+        p->flags = p->property = 0; // 清除页标志和属性
+        set_page_ref(p, 0); // 设置页引用计数为 0
     }
-    base->property = n;
-    SetPageProperty(base);
-    nr_free += n;
+
+    base->property = n; // 设置头页的属性为 n
+    SetPageProperty(base); // 设置页属性
+    nr_free += n; // 更新空闲页数
+
+    // 如果空闲链表为空，直接插入
     if (list_empty(&free_list)) {
-        list_add(&free_list, &(base->page_link));
+        list_add(&free_list, &(base->page_link)); // 插入到空闲链表
     } else {
-        list_entry_t* le = &free_list;
+        // 遍历空闲链表，找到插入位置
+        list_entry_t *le = &free_list;
         while ((le = list_next(le)) != &free_list) {
-            struct Page* page = le2page(le, page_link);
+            struct Page *page = le2page(le, page_link);
             if (base < page) {
-                list_add_before(le, &(base->page_link));
+                list_add_before(le, &(base->page_link)); // 插入到找到的位置之前
                 break;
             } else if (list_next(le) == &free_list) {
-                list_add(le, &(base->page_link));
+                list_add(le, &(base->page_link)); // 插入到链表末尾
             }
         }
     }
 }
-
+//BFMA
 static struct Page *
 default_alloc_pages(size_t n) {
-    assert(n > 0);
+    assert(n > 0); // 确保 n 大于 0
     if (n > nr_free) {
-        return NULL;
+        return NULL; // 如果请求的页数大于空闲页数，返回 NULL
     }
-    struct Page *page = NULL;
-	//lab3 todo
-	
-    return page;
+
+    struct Page *best_page = NULL;
+    list_entry_t *le = &free_list;
+
+    // 遍历空闲链表，寻找最接近所请求大小的块
+    while ((le = list_next(le)) != &free_list) {
+        struct Page *p = le2page(le, page_link);
+        if (p->property >= n) {
+            if (best_page == NULL || p->property < best_page->property) {
+                best_page = p; // 更新最适合的块
+            }
+        }
+    }
+
+    if (best_page != NULL) {
+        list_entry_t* prev = list_prev(&(best_page->page_link));
+        list_del(&(best_page->page_link)); // 从空闲链表中删除最适合的块
+        if (best_page->property > n) {
+            struct Page *p = best_page + n;
+            p->property = best_page->property - n;
+            SetPageProperty(p); // 设置剩余块的属性
+            list_add(prev, &(p->page_link)); // 将剩余块插入空闲链表
+        }
+        nr_free -= n; // 更新空闲页数
+        ClearPageProperty(best_page); // 清除已分配块的属性
+    }
+    return best_page; // 返回最适合的块
 }
+
+
+// // FFMA
+// static struct Page *
+// default_alloc_pages(size_t n) {
+//     assert(n > 0); // 确保 n 大于 0
+//     if (n > nr_free) {
+//         return NULL; // 如果请求的页数大于空闲页数，返回 NULL
+//     }
+//     struct Page *page = NULL;
+//     list_entry_t *le = &free_list;
+
+//     // 遍历空闲链表，寻找第一个满足请求大小的块
+//     while ((le = list_next(le)) != &free_list) {
+//         struct Page *p = le2page(le, page_link);
+//         if (p->property >= n) {
+//             page = p; // 找到满足条件的块
+//             break;
+//         }
+//     }
+
+//     if (page != NULL) {
+//         list_entry_t* prev = list_prev(&(page->page_link));
+//         list_del(&(page->page_link)); // 从空闲链表中删除找到的块
+//         if (page->property > n) {
+//             struct Page *p = page + n;
+//             p->property = page->property - n;
+//             SetPageProperty(p); // 设置剩余块的属性
+//             list_add(prev, &(p->page_link)); // 将剩余块插入空闲链表
+//         }
+//         nr_free -= n; // 更新空闲页数
+//         ClearPageProperty(page); // 清除已分配块的属性
+//     }
+//     return page; // 返回找到的块
+// }
+
 
 static void
 default_free_pages(struct Page *base, size_t n) {
-    assert(n > 0);
-	//lab3 todo
-}
+    assert(n > 0); // 确保 n 大于 0
 
+    // 初始化要释放的页的属性
+    struct Page *p = base;
+    for (; p != base + n; p++) {
+        assert(!PageReserved(p) && !PageProperty(p)); // 确保页未被保留且无属性
+        p->flags = 0; // 清除页标志
+        set_page_ref(p, 0); // 设置页引用计数为 0
+    }
+
+    // 设置头页的属性
+    base->property = n; // 设置连续空闲页的数量
+    SetPageProperty(base); // 设置页属性
+    nr_free += n; // 更新空闲页数
+
+    // 如果空闲链表为空，直接插入
+    if (list_empty(&free_list)) {
+        list_add(&free_list, &(base->page_link)); // 插入到空闲链表
+    } else {
+        // 遍历空闲链表，找到插入位置
+        list_entry_t* le = &free_list;
+        while ((le = list_next(le)) != &free_list) {
+            struct Page* page = le2page(le, page_link);
+            if (base < page) {
+                list_add_before(le, &(base->page_link)); // 插入到找到的位置之前
+                break;
+            } else if (list_next(le) == &free_list) {
+                list_add(le, &(base->page_link)); // 插入到链表末尾
+                break;
+            }
+        }
+    }
+
+    // 合并前一个空闲块
+    list_entry_t* le = list_prev(&(base->page_link));
+    if (le != &free_list) {
+        p = le2page(le, page_link);
+        if (p + p->property == base) { // 检查是否可以合并
+            p->property += base->property; // 合并
+            ClearPageProperty(base); // 清除合并页的属性
+            list_del(&(base->page_link)); // 从链表中删除合并页
+            base = p; // 更新基地址
+        }
+    }
+
+    // 合并后一个空闲块
+    le = list_next(&(base->page_link));
+    if (le != &free_list) {
+        p = le2page(le, page_link);
+        if (base + base->property == p) { // 检查是否可以合并
+            base->property += p->property; // 合并
+            ClearPageProperty(p); // 清除合并页的属性
+            list_del(&(p->page_link)); // 从链表中删除合并页
+        }
+    }
+}
+    
 static size_t
 default_nr_free_pages(void) {
     return nr_free;
@@ -301,6 +418,6 @@ const struct pmm_manager default_pmm_manager = {
     .alloc_pages = default_alloc_pages,
     .free_pages = default_free_pages,
     .nr_free_pages = default_nr_free_pages,
-    .check = default_check,
+    .check = best_fit_check,
 };
 

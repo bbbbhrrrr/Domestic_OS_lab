@@ -114,8 +114,6 @@ static void page_init(void) {
     init_memmap(pa2page(PADDR(freemem)), free_pages);
 
 
-
-
     assert(nr_free_pages() > 0);
 	cprintf("lab2 ok\n");
 	while(1);

@@ -1095,7 +1095,7 @@ ffffffff80911064:	48 80 7b 8f 	ldl	$r27,-32696($r27)
 ffffffff80911068:	ff ff 7d fe 	ldih	$r19,-1($r29)
 ffffffff8091106c:	ff ff 5d fe 	ldih	$r18,-1($r29)
 ffffffff80911070:	ff ff 1d fe 	ldih	$r16,-1($r29)
-ffffffff80911074:	77 00 3f fa 	ldi	$r17,119
+ffffffff80911074:	75 00 3f fa 	ldi	$r17,117
 ffffffff80911078:	88 e2 73 fa 	ldi	$r19,-7544($r19)
 ffffffff8091107c:	9c e2 52 fa 	ldi	$r18,-7524($r18)
 ffffffff80911080:	b1 e2 10 fa 	ldi	$r16,-7503($r16)
